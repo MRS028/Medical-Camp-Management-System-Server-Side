@@ -30,6 +30,7 @@ async function run() {
 
     const campCollection = client.db("MCMS").collection("camp");
     const userCollection = client.db("MCMS").collection("users");
+    const joinCampCollection = client.db("MCMS").collection("JoinCamp");
 
     //jwt related api
     app.post("/jwt", (req, res) => {
@@ -79,6 +80,20 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
+    //admin
+    app.get("/users/admin/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: "Unauthorized access" });
+      }
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let admin = false;
+      if (user) {
+        admin = user?.role === "admin";
+      }
+      res.send({ admin });
+    });
 
     //available camps
     //get for camps
@@ -91,6 +106,19 @@ async function run() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await campCollection.findOne(query);
+      res.send(result);
+    });
+    //join camp
+    app.post("/join-camps", async (req, res) => {
+      const campRequest = req.body;
+      const result = await joinCampCollection.insertOne(campRequest);
+      res.send(result);
+    });
+
+    //addcamp postoperation
+    app.post("/camp", async (req, res) => {
+      const item = req.body;
+      const result = await campCollection.insertOne(item);
       res.send(result);
     });
 
