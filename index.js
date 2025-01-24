@@ -2,6 +2,8 @@ const express = require("express");
 const app = express();
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
+const morgan = require("morgan");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -10,6 +12,7 @@ const port = process.env.PORT || 5000;
 //middleware
 app.use(cors());
 app.use(express.json());
+app.use(morgan("dev"));
 
 //
 
@@ -81,7 +84,7 @@ async function run() {
       res.send(result);
     });
     //get users
-    app.get("/users", async (req, res) => {
+    app.get("/users", verifyToken, async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
@@ -100,7 +103,7 @@ async function run() {
       res.send({ admin });
     });
     //users update:
-    app.patch("/user/:id", async (req, res) => {
+    app.patch("/user/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
       const updatedData = req.body;
       const filter = { _id: new ObjectId(id) };
@@ -134,14 +137,12 @@ async function run() {
       const result = await joinCampCollection.insertOne(campRequest);
       res.send(result);
     });
-    app.get("/registeredCamps/:email",verifyToken, async (req, res) => {
+    app.get("/registeredCamps/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const query = { participantEmail: email };
       const result = await joinCampCollection.find(query).toArray(); // Array return
       res.send(result);
     });
-    
-    
 
     //addcamp postoperation
     app.post("/camp", async (req, res) => {
@@ -176,6 +177,11 @@ async function run() {
       };
 
       const result = await campCollection.updateOne(filter, updatedDoc);
+      res.send(result);
+    });
+    //all registrated camps by the users
+    app.get("/registeredCamps", verifyToken, async (req, res) => {
+      const result = await joinCampCollection.find().toArray();
       res.send(result);
     });
 
