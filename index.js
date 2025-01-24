@@ -159,7 +159,7 @@ async function run() {
       res.send(result);
     });
     //update joined camp with payment status
-    app.patch("/join-camp/:id", async (req, res) => {
+    app.patch("/join-camp/:id",verifyToken, async (req, res) => {
       const { id } = req.params;
       const updatedPaymentData = req.body;
       const filter = { _id: new ObjectId(id) };
@@ -169,6 +169,20 @@ async function run() {
           paymentStatus: updatedPaymentData.paymentStatus,
           transactionId: updatedPaymentData.transactionId,
           date: updatedPaymentData.date,
+          feedback: updatedPaymentData.feedback
+        },
+      };
+      const result = await joinCampCollection.updateOne(filter, updatedPayDoc);
+      res.send(result);
+    });
+    //cancel and confirmed
+    app.patch("/confirmedCamp/:id",verifyToken,verifyAdmin, async (req, res) => {
+      const { id } = req.params;
+      const updatedPaymentData = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updatedPayDoc = {
+        $set: {
+          confirmationStatus: updatedPaymentData.confirmationStatus,
         },
       };
       const result = await joinCampCollection.updateOne(filter, updatedPayDoc);
