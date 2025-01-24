@@ -159,7 +159,7 @@ async function run() {
       res.send(result);
     });
     //update joined camp with payment status
-    app.patch("/join-camp/:id",verifyToken, async (req, res) => {
+    app.patch("/join-camp/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
       const updatedPaymentData = req.body;
       const filter = { _id: new ObjectId(id) };
@@ -169,25 +169,56 @@ async function run() {
           paymentStatus: updatedPaymentData.paymentStatus,
           transactionId: updatedPaymentData.transactionId,
           date: updatedPaymentData.date,
-          feedback: updatedPaymentData.feedback
+          feedback: updatedPaymentData.feedback,
         },
       };
       const result = await joinCampCollection.updateOne(filter, updatedPayDoc);
       res.send(result);
     });
     //cancel and confirmed
-    app.patch("/confirmedCamp/:id",verifyToken,verifyAdmin, async (req, res) => {
+    app.patch(
+      "/confirmedCamp/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const { id } = req.params;
+        const updatedPaymentData = req.body;
+        const filter = { _id: new ObjectId(id) };
+        const updatedPayDoc = {
+          $set: {
+            confirmationStatus: updatedPaymentData.confirmationStatus,
+          },
+        };
+        const result = await joinCampCollection.updateOne(
+          filter,
+          updatedPayDoc
+        );
+        res.send(result);
+      }
+    );
+    app.patch("/participant-count/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
-      const updatedPaymentData = req.body;
+      const { action } = req.body; 
       const filter = { _id: new ObjectId(id) };
+  
+      const incrementValue = action === "increment" ? 1 : action === "decrement" ? -1 : 0;
+  
+      if (incrementValue === 0) {
+          return res.status(400).send({ message: "Invalid action" });
+      }
+  
       const updatedPayDoc = {
-        $set: {
-          confirmationStatus: updatedPaymentData.confirmationStatus,
-        },
+          $inc: {
+              participants: incrementValue
+          },
       };
-      const result = await joinCampCollection.updateOne(filter, updatedPayDoc);
+  
+      const result = await campCollection.updateOne(filter, updatedPayDoc);
       res.send(result);
-    });
+  });
+  
+
+    //register camp show
     app.get("/registeredCamps/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const query = { participantEmail: email };
