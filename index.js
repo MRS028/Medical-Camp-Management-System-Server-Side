@@ -71,6 +71,27 @@ async function run() {
       }
       next();
     };
+    //payment intent
+    app.post("/create-payment-intent", async (req, res) => {
+      const { campFees } = req.body;
+
+      // Validate campFees
+      if (!campFees || isNaN(campFees)) {
+        return res.status(400).json({ error: "Invalid camp fees provided." });
+      }
+
+      const amount = Math.round(campFees * 100);
+      console.log(amount, "Amout the intent");
+
+      // Create a payment intent
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      res.send({ clientSecret: paymentIntent.client_secret });
+    });
 
     //users related API
     app.post("/users", async (req, res) => {
@@ -137,6 +158,22 @@ async function run() {
       const result = await joinCampCollection.insertOne(campRequest);
       res.send(result);
     });
+    //update joined camp with payment status
+    app.patch("/join-camp/:id", async (req, res) => {
+      const { id } = req.params;
+      const updatedPaymentData = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const updatedPayDoc = {
+        $set: {
+          confirmationStatus: updatedPaymentData.confirmationStatus,
+          paymentStatus: updatedPaymentData.paymentStatus,
+          transactionId: updatedPaymentData.transactionId,
+          date: updatedPaymentData.date,
+        },
+      };
+      const result = await joinCampCollection.updateOne(filter, updatedPayDoc);
+      res.send(result);
+    });
     app.get("/registeredCamps/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       const query = { participantEmail: email };
@@ -172,7 +209,7 @@ async function run() {
           participants: updatedData.participants,
           fees: updatedData.fees,
           description: updatedData.description,
-          image: updatedData.image, // Optional, only if provided
+          image: updatedData.image,
         },
       };
 
