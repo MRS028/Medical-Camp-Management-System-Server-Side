@@ -34,6 +34,7 @@ async function run() {
     const campCollection = client.db("MCMS").collection("camp");
     const userCollection = client.db("MCMS").collection("users");
     const joinCampCollection = client.db("MCMS").collection("JoinCamp");
+    const doctorsCollection = client.db("MCMS").collection("Doctors");
 
     //jwt related api
     app.post("/jwt", (req, res) => {
@@ -105,7 +106,7 @@ async function run() {
       res.send(result);
     });
     //get users
-    app.get("/users", verifyToken, async (req, res) => {
+    app.get("/users", async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
@@ -198,25 +199,32 @@ async function run() {
     );
     app.patch("/participant-count/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
-      const { action } = req.body; 
+      const { action } = req.body;
       const filter = { _id: new ObjectId(id) };
-  
-      const incrementValue = action === "increment" ? 1 : action === "decrement" ? -1 : 0;
-  
+
+      const incrementValue =
+        action === "increment" ? 1 : action === "decrement" ? -1 : 0;
+
       if (incrementValue === 0) {
-          return res.status(400).send({ message: "Invalid action" });
+        return res.status(400).send({ message: "Invalid action" });
       }
-  
+
       const updatedPayDoc = {
-          $inc: {
-              participants: incrementValue
-          },
+        $inc: {
+          participants: incrementValue,
+        },
       };
-  
+
       const result = await campCollection.updateOne(filter, updatedPayDoc);
       res.send(result);
-  });
-  
+    });
+    //delete registered  unpaid camp from user
+    app.delete("/delete-joined-camp/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await joinCampCollection.deleteOne(query);
+      res.send(result);
+    });
 
     //register camp show
     app.get("/registeredCamps/:email", verifyToken, async (req, res) => {
@@ -226,19 +234,24 @@ async function run() {
       res.send(result);
     });
 
-    //addcamp postoperation
+    //addcamp post operation
     app.post("/camp", async (req, res) => {
       const item = req.body;
       const result = await campCollection.insertOne(item);
       res.send(result);
     });
     //delete a camp
-    app.delete("/camps/:id", verifyToken, verifyAdmin, async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await campCollection.deleteOne(query);
-      res.send(result);
-    });
+    app.delete(
+      "/delete-camp/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const result = await campCollection.deleteOne(query);
+        res.send(result);
+      }
+    );
     //update a  camp
     app.patch("/camp/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
@@ -264,6 +277,12 @@ async function run() {
     //all registrated camps by the users
     app.get("/registeredCamps", verifyToken, async (req, res) => {
       const result = await joinCampCollection.find().toArray();
+      res.send(result);
+    });
+
+    //doctors
+    app.get("/doctors", async (req, res) => {
+      const result = await doctorsCollection.find().toArray();
       res.send(result);
     });
 
