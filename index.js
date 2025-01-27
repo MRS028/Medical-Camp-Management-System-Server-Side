@@ -10,7 +10,17 @@ const jwt = require("jsonwebtoken");
 const port = process.env.PORT || 5000;
 
 //middleware
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "https://medical-camp-management-b10a12.web.app",
+      "https://medical-camp-management-b10a12.firebaseapp.com",
+      "https://medical-camp-management-system-b10a12.netlify.app",
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(morgan("dev"));
 
@@ -35,6 +45,7 @@ async function run() {
     const userCollection = client.db("MCMS").collection("users");
     const joinCampCollection = client.db("MCMS").collection("JoinCamp");
     const doctorsCollection = client.db("MCMS").collection("Doctors");
+    const feedbackCollection = client.db("MCMS").collection("Feedback");
 
     //jwt related api
     app.post("/jwt", (req, res) => {
@@ -218,6 +229,8 @@ async function run() {
       const result = await campCollection.updateOne(filter, updatedPayDoc);
       res.send(result);
     });
+    //all joined camps
+
     //delete registered  unpaid camp from user
     app.delete("/delete-joined-camp/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
@@ -235,7 +248,7 @@ async function run() {
     });
 
     //addcamp post operation
-    app.post("/camp", async (req, res) => {
+    app.post("/camp", verifyToken, verifyAdmin, async (req, res) => {
       const item = req.body;
       const result = await campCollection.insertOne(item);
       res.send(result);
@@ -253,7 +266,7 @@ async function run() {
       }
     );
     //update a  camp
-    app.patch("/camp/:id", verifyToken, async (req, res) => {
+    app.patch("/camp/:id", verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
       const updatedData = req.body;
 
@@ -285,6 +298,13 @@ async function run() {
       const result = await doctorsCollection.find().toArray();
       res.send(result);
     });
+
+    //Feedabck Post operation
+    app.post('/feedback', async(req,res)=>{
+      const item = req.body;
+      const result = await feedbackCollection.insertOne(item);
+      res.send(result);
+    })
 
     //finish
     console.log(
