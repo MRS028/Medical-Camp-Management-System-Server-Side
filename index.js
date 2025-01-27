@@ -300,12 +300,17 @@ async function run() {
     });
 
     //Feedabck Post operation
-    app.post('/feedback', async(req,res)=>{
+    app.post("/feedback", async (req, res) => {
       const item = req.body;
       const result = await feedbackCollection.insertOne(item);
       res.send(result);
-    })
+    });
 
+    //feedback get
+    app.get("/feedbacks", async (req, res) => {
+      const result = await feedbackCollection.find().toArray();
+      res.send(result);
+    });
     //finish
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
