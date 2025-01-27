@@ -55,6 +55,8 @@ async function run() {
       });
       res.send({ token });
     });
+
+    
     //verify token middlewares
     const verifyToken = (req, res, next) => {
       // console.log("Inside verify token", req.headers.authorization);
@@ -70,8 +72,9 @@ async function run() {
         next();
       });
     };
-    //use verify admin after token
 
+
+    //use verify admin after token
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
       const query = { email: email };
@@ -83,6 +86,8 @@ async function run() {
       }
       next();
     };
+
+
     //payment intent
     app.post("/create-payment-intent", async (req, res) => {
       const { campFees } = req.body;
@@ -116,11 +121,13 @@ async function run() {
       const result = await userCollection.insertOne(user);
       res.send(result);
     });
+
     //get users
     app.get("/users", async (req, res) => {
       const result = await userCollection.find().toArray();
       res.send(result);
     });
+
     //admin
     app.get("/users/admin/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
@@ -135,6 +142,8 @@ async function run() {
       }
       res.send({ admin });
     });
+
+
     //users update:
     app.patch("/user/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
@@ -152,11 +161,14 @@ async function run() {
     });
 
     //available camps
+
     //get for camps
     app.get("/camps", async (req, res) => {
       const result = await campCollection.find().toArray();
       res.send(result);
     });
+
+
     //get camp with id
     app.get("/camps/:id", async (req, res) => {
       const id = req.params.id;
@@ -164,12 +176,15 @@ async function run() {
       const result = await campCollection.findOne(query);
       res.send(result);
     });
+
+
     //join camp
-    app.post("/join-camps", async (req, res) => {
+    app.post("/join-camps",verifyToken, async (req, res) => {
       const campRequest = req.body;
       const result = await joinCampCollection.insertOne(campRequest);
       res.send(result);
     });
+
     //update joined camp with payment status
     app.patch("/join-camp/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
@@ -187,6 +202,8 @@ async function run() {
       const result = await joinCampCollection.updateOne(filter, updatedPayDoc);
       res.send(result);
     });
+
+
     //cancel and confirmed
     app.patch(
       "/confirmedCamp/:id",
@@ -208,6 +225,8 @@ async function run() {
         res.send(result);
       }
     );
+
+    //pathc participant count
     app.patch("/participant-count/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
       const { action } = req.body;
@@ -229,8 +248,9 @@ async function run() {
       const result = await campCollection.updateOne(filter, updatedPayDoc);
       res.send(result);
     });
-    //all joined camps
 
+
+    //all joined camps
     //delete registered  unpaid camp from user
     app.delete("/delete-joined-camp/:id", verifyToken, async (req, res) => {
       const id = req.params.id;
@@ -253,6 +273,8 @@ async function run() {
       const result = await campCollection.insertOne(item);
       res.send(result);
     });
+
+
     //delete a camp
     app.delete(
       "/delete-camp/:id",
@@ -265,6 +287,8 @@ async function run() {
         res.send(result);
       }
     );
+
+
     //update a  camp
     app.patch("/camp/:id", verifyToken, verifyAdmin, async (req, res) => {
       const { id } = req.params;
@@ -287,6 +311,7 @@ async function run() {
       const result = await campCollection.updateOne(filter, updatedDoc);
       res.send(result);
     });
+
     //all registrated camps by the users
     app.get("/registeredCamps", verifyToken, async (req, res) => {
       const result = await joinCampCollection.find().toArray();
@@ -311,6 +336,8 @@ async function run() {
       const result = await feedbackCollection.find().toArray();
       res.send(result);
     });
+
+
     //finish
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
