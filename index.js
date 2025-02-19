@@ -4,6 +4,8 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const morgan = require("morgan");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const axios = require("axios");
+const SSLCommerzPayment = require("sslcommerz-lts");
 
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -47,6 +49,14 @@ async function run() {
     const doctorsCollection = client.db("MCMS").collection("Doctors");
     const feedbackCollection = client.db("MCMS").collection("Feedback");
 
+    //ssl variable
+    const store_id = process.env.STORE_ID;
+    const store_password = process.env.STORE_PASS;
+    const is_live = false;
+
+    //transaction id for sslecommerz
+    const tran_id = new ObjectId().toString();
+
     //jwt related api
     app.post("/jwt", (req, res) => {
       const user = req.body;
@@ -56,7 +66,6 @@ async function run() {
       res.send({ token });
     });
 
-    
     //verify token middlewares
     const verifyToken = (req, res, next) => {
       // console.log("Inside verify token", req.headers.authorization);
@@ -73,7 +82,6 @@ async function run() {
       });
     };
 
-
     //use verify admin after token
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
@@ -86,7 +94,6 @@ async function run() {
       }
       next();
     };
-
 
     //payment intent
     app.post("/create-payment-intent", async (req, res) => {
@@ -109,6 +116,88 @@ async function run() {
 
       res.send({ clientSecret: paymentIntent.client_secret });
     });
+    //sslecommerz
+
+   
+    // const session_api = "https://sandbox.sslcommerz.com/gwprocess/v3/api.php";
+    app.post("/payment", async (req, res) => {
+      const id = req?.body?.campId;
+      const query = { _id: new ObjectId(id) };
+      const camp = await joinCampCollection.findOne(query);
+
+      // console.log(req.body);
+      const data = {
+        total_amount: camp?.campFees,
+        currency: "BDT",
+        tran_id: tran_id, // use unique tran_id for each api call
+        success_url: `http://localhost:5000/payment-success/${tran_id}`,
+        fail_url: "http://localhost:3030/fail",
+        cancel_url: "http://localhost:3030/cancel",
+        ipn_url: "http://localhost:3030/ipn",
+        shipping_method: "Courier",
+        product_name: camp?.campName,
+        product_category: "Medical Camp",
+        product_profile: "general",
+        cus_name: camp?.participantName,
+        cus_email: camp?.participantEmail,
+        cus_add1: "Dhaka",
+        cus_add2: "Dhaka",
+        cus_city: "Dhaka",
+        cus_state: "Dhaka",
+        cus_postcode: "1000",
+        cus_country: "Bangladesh",
+        cus_phone: camp?.phone,
+        cus_fax: "01711111111",
+        ship_name: "Customer Name",
+        ship_add1: "Dhaka",
+        ship_add2: "Dhaka",
+        ship_city: "Dhaka",
+        ship_state: "Dhaka",
+        ship_postcode: 1000,
+        ship_country: "Bangladesh",
+      };
+      // console.log(data);
+      const sslcz = new SSLCommerzPayment(store_id, store_password, is_live);
+      sslcz.init(data).then(async (apiResponse) => {
+        // Redirect the user to payment gateway
+        let GatewayPageURL = apiResponse.GatewayPageURL;
+        // res.redirect(GatewayPageURL);
+        res.send({ url: GatewayPageURL });
+        const update = await joinCampCollection.updateOne(query, {
+          $set: {
+            paymentStatus: "Paid",
+            date: new Date(),
+            confirmationStatus: "Pending",
+            // feedback: false,
+            transactionId: tran_id,
+          },
+        });
+        // console.log(update)
+        // console.log("Redirecting to: ", GatewayPageURL);
+      });
+      
+    });
+    //payment success
+    app.post("/payment-success/:tranId", async (req, res) => {
+      const trxnId = req.params.tranId.toString(); 
+      // console.log("Received transaction ID:", trxnId);
+    
+      const result = await joinCampCollection.updateOne(
+        { transactionId: trxnId }, 
+        { $set: { feedback: true } }
+      );
+    
+      // console.log("Update Result:", result);
+    
+      if (result.modifiedCount > 0) {
+        // console.log("Payment success, redirecting...");
+        res.redirect(`https://medical-camp-management-b10a12.firebaseapp.com/dashboard/payment-success/${trxnId}`);
+      } else {
+        // console.log("Payment update failed! Transaction ID may not exist.");
+        res.status(400).send("Payment update failed");
+      }
+    });
+    
 
     //users related API
     app.post("/users", async (req, res) => {
@@ -143,7 +232,6 @@ async function run() {
       res.send({ admin });
     });
 
-
     //users update:
     app.patch("/user/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
@@ -168,7 +256,6 @@ async function run() {
       res.send(result);
     });
 
-
     //get camp with id
     app.get("/camps/:id", async (req, res) => {
       const id = req.params.id;
@@ -177,9 +264,8 @@ async function run() {
       res.send(result);
     });
 
-
     //join camp
-    app.post("/join-camps",verifyToken, async (req, res) => {
+    app.post("/join-camps", verifyToken, async (req, res) => {
       const campRequest = req.body;
       const result = await joinCampCollection.insertOne(campRequest);
       res.send(result);
@@ -202,7 +288,6 @@ async function run() {
       const result = await joinCampCollection.updateOne(filter, updatedPayDoc);
       res.send(result);
     });
-
 
     //cancel and confirmed
     app.patch(
@@ -249,7 +334,6 @@ async function run() {
       res.send(result);
     });
 
-
     //all joined camps
     //delete registered  unpaid camp from user
     app.delete("/delete-joined-camp/:id", verifyToken, async (req, res) => {
@@ -274,7 +358,6 @@ async function run() {
       res.send(result);
     });
 
-
     //delete a camp
     app.delete(
       "/delete-camp/:id",
@@ -287,7 +370,6 @@ async function run() {
         res.send(result);
       }
     );
-
 
     //update a  camp
     app.patch("/camp/:id", verifyToken, verifyAdmin, async (req, res) => {
@@ -336,7 +418,6 @@ async function run() {
       const result = await feedbackCollection.find().toArray();
       res.send(result);
     });
-
 
     //finish
     console.log(
